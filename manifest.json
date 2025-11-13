@@ -1,0 +1,33 @@
+{
+    "manifest_version": 3,
+    "name": "YUTES - YouTube Usability & Theater Enhancement Suite",
+    "version": "1.0",
+    "description": "Enhance YouTube with custom hotkeys, theater mode improvements, and usability features",
+    "permissions": [
+        "storage",
+        "activeTab"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://www.youtube.com/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_end"
+        }
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "YUTES Settings"
+    },
+    "icons": {
+        "16": "icon16.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+    }
+}

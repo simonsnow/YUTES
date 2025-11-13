@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Icon Generator</title>
+</head>
+
+<body>
+    <canvas id="canvas16" width="16" height="16"></canvas>
+    <canvas id="canvas48" width="48" height="48"></canvas>
+    <canvas id="canvas128" width="128" height="128"></canvas>
+
+    <div>
+        <p>Right-click each canvas above and "Save image as..." with these names:</p>
+        <ul>
+            <li>First canvas → icon16.png</li>
+            <li>Second canvas → icon48.png</li>
+            <li>Third canvas → icon128.png</li>
+        </ul>
+    </div>
+
+    <script>
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = '#1976d2';
+            ctx.fillRect(0, 0, size, size);
+
+            // YouTube play button style triangle
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const triangleSize = size * 0.3;
+
+            ctx.moveTo(centerX - triangleSize / 2, centerY - triangleSize / 2);
+            ctx.lineTo(centerX + triangleSize / 2, centerY);
+            ctx.lineTo(centerX - triangleSize / 2, centerY + triangleSize / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            // Hotkey indicator (small "K")
+            ctx.fillStyle = 'white';
+            ctx.font = `${Math.floor(size * 0.2)}px Arial`;
+            ctx.textAlign = 'right';
+            ctx.fillText('K', size - 2, size - 2);
+        }
+
+        drawIcon('canvas16', 16);
+        drawIcon('canvas48', 48);
+        drawIcon('canvas128', 128);
+    </script>
+</body>
+
+</html>
