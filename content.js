@@ -351,28 +351,22 @@ async function moveWatchInfoToTopRow() {
   // Set up watcher for view count changes
   setupViewCountWatcher();
   
-  // Move buttons to the actions area (with retry)
-  moveButtonsToActions();
+  // Move buttons to the actions area (with retry) - run independently
+  moveButtonsToActions().catch(error => {
+    debugLog('Error moving buttons:', error.message);
+  });
   
   debugLog('Successfully cloned watch info to top row:', infoText);
 }
 
-// Move buttons to actions area with retry logic
-let buttonMoveAttempts = 0;
-const MAX_BUTTON_MOVE_ATTEMPTS = 10;
+// Move buttons to actions area
 async function moveButtonsToActions() {
   try {
     // Wait for the actions menu to be available
+    debugLog('Waiting for actions menu...');
     await waitForElement('#top-level-buttons-computed', 10000);
   } catch (error) {
-    buttonMoveAttempts++;
-    if (buttonMoveAttempts < MAX_BUTTON_MOVE_ATTEMPTS) {
-      debugLog(`Actions menu not found, retrying (${buttonMoveAttempts}/${MAX_BUTTON_MOVE_ATTEMPTS})...`);
-      setTimeout(moveButtonsToActions, 200);
-    } else {
-      debugLog('Actions menu not found after max attempts, giving up');
-      buttonMoveAttempts = 0;
-    }
+    debugLog('Actions menu not found after timeout:', error.message);
     return;
   }
   
@@ -382,7 +376,6 @@ async function moveButtonsToActions() {
     return;
   }
   
-  buttonMoveAttempts = 0; // Reset on success
   debugLog('Moving buttons to actions area...');
   
   // Move Subscribe button if it exists
@@ -529,44 +522,21 @@ function setupViewCountWatcher() {
 
 // Re-initialize when navigating between YouTube pages
 let lastUrl = location.href;
-let retryCount = 0;
-const MAX_RETRIES = 15;
-let retryTimeout = null;
 
+// Navigation observer - watches for URL changes
 new MutationObserver(() => {
   const url = location.href;
   if (url !== lastUrl) {
     lastUrl = url;
-    retryCount = 0; // Reset retry count on navigation
-    buttonMoveAttempts = 0; // Reset button move attempts
     
-    // Clear any pending retries
-    if (retryTimeout) {
-      clearTimeout(retryTimeout);
-      retryTimeout = null;
-    }
-    
-    // YouTube uses AJAX navigation, so we need to re-check for buttons
+    // YouTube uses AJAX navigation, so we need to re-initialize
     debugLog('Navigation detected, initializing watch info...');
     // Use async initialization
-    initializeWatchInfo();
-  } else if (retryCount < MAX_RETRIES) {
-    // Only retry if we haven't exceeded max retries and if the cloned element doesn't exist yet
-    const alreadyExists = document.querySelector('#cloned-watch-info');
-    const actionsMenu = document.querySelector('#top-level-buttons-computed');
-    
-    if (!alreadyExists && settings.showWatchInfoInTopRow && actionsMenu) {
-      retryCount++;
-      debugLog(`Retrying watch info setup (${retryCount}/${MAX_RETRIES})...`);
-      retryTimeout = setTimeout(() => {
-        initializeWatchInfo();
-      }, 300);
+    if (settings.showWatchInfoInTopRow) {
+      initializeWatchInfo();
     }
   }
 }).observe(document, { subtree: true, childList: true });
-
-// Initial calls no longer needed with proper async waiting
-// The initializeWatchInfo() call from storage load will handle it
 
 // Element Picker functionality
 let pickerActive = false;
