@@ -44,30 +44,30 @@ function waitForElement(selector, timeout = 10000) {
     const observer = new MutationObserver((mutations, obs) => {
       // Only check if nodes were added
       for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          // First check if any added node or its descendants match the selector
-          for (const node of mutation.addedNodes) {
-            // Skip non-element nodes (text nodes, comments, etc.)
-            if (node.nodeType !== Node.ELEMENT_NODE) continue;
-            
-            // Check if the node itself matches
-            if (node.matches && node.matches(selector)) {
-              clearTimeout(timeoutId);
-              obs.disconnect();
-              debugLog(`Found element: ${selector}`);
-              resolve(node);
-              return;
-            }
-            
-            // Check descendants
-            const element = node.querySelector && node.querySelector(selector);
-            if (element) {
-              clearTimeout(timeoutId);
-              obs.disconnect();
-              debugLog(`Found element: ${selector}`);
-              resolve(element);
-              return;
-            }
+        if (mutation.addedNodes.length === 0) continue;
+        
+        // Check if any added node or its descendants match the selector
+        for (const node of mutation.addedNodes) {
+          // Skip non-element nodes (text nodes, comments, etc.)
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          
+          // Check if the node itself matches
+          if (node.matches(selector)) {
+            clearTimeout(timeoutId);
+            obs.disconnect();
+            debugLog(`Found element: ${selector}`);
+            resolve(node);
+            return;
+          }
+          
+          // Check descendants
+          const element = node.querySelector(selector);
+          if (element) {
+            clearTimeout(timeoutId);
+            obs.disconnect();
+            debugLog(`Found element: ${selector}`);
+            resolve(element);
+            return;
           }
         }
       }
@@ -107,31 +107,31 @@ async function waitForAnyElement(selectors, timeout = 10000) {
     const observer = new MutationObserver((mutations, obs) => {
       // Only check if nodes were added
       for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          // Check each added node against all selectors
-          for (const node of mutation.addedNodes) {
-            // Skip non-element nodes
-            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        if (mutation.addedNodes.length === 0) continue;
+        
+        // Check each added node against all selectors
+        for (const node of mutation.addedNodes) {
+          // Skip non-element nodes
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          
+          for (const selector of selectors) {
+            // Check if the node itself matches
+            if (node.matches(selector)) {
+              clearTimeout(timeoutId);
+              obs.disconnect();
+              debugLog(`Found element: ${selector}`);
+              resolve({ element: node, selector });
+              return;
+            }
             
-            for (const selector of selectors) {
-              // Check if the node itself matches
-              if (node.matches && node.matches(selector)) {
-                clearTimeout(timeoutId);
-                obs.disconnect();
-                debugLog(`Found element: ${selector}`);
-                resolve({ element: node, selector });
-                return;
-              }
-              
-              // Check descendants
-              const element = node.querySelector && node.querySelector(selector);
-              if (element) {
-                clearTimeout(timeoutId);
-                obs.disconnect();
-                debugLog(`Found element: ${selector}`);
-                resolve({ element, selector });
-                return;
-              }
+            // Check descendants
+            const element = node.querySelector(selector);
+            if (element) {
+              clearTimeout(timeoutId);
+              obs.disconnect();
+              debugLog(`Found element: ${selector}`);
+              resolve({ element, selector });
+              return;
             }
           }
         }
