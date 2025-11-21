@@ -12,6 +12,14 @@ let settings = {
   showWatchInfoInTopRow: true
 };
 
+// Constant selectors for subscriber count (used in multiple places)
+const SUBSCRIBER_SELECTORS = [
+  '#owner-sub-count',
+  'ytd-video-owner-renderer #owner #subscriber-count',
+  '#subscriber-count',
+  'yt-formatted-string#owner-sub-count'
+];
+
 // Debug logging function
 function debugLog(...args) {
   if (settings.debugMode) {
@@ -37,13 +45,29 @@ function waitForElement(selector, timeout = 10000) {
       // Only check if nodes were added
       for (const mutation of mutations) {
         if (mutation.addedNodes.length > 0) {
-          const element = document.querySelector(selector);
-          if (element) {
-            clearTimeout(timeoutId);
-            obs.disconnect();
-            debugLog(`Found element: ${selector}`);
-            resolve(element);
-            return;
+          // First check if any added node or its descendants match the selector
+          for (const node of mutation.addedNodes) {
+            // Skip non-element nodes (text nodes, comments, etc.)
+            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+            
+            // Check if the node itself matches
+            if (node.matches && node.matches(selector)) {
+              clearTimeout(timeoutId);
+              obs.disconnect();
+              debugLog(`Found element: ${selector}`);
+              resolve(node);
+              return;
+            }
+            
+            // Check descendants
+            const element = node.querySelector && node.querySelector(selector);
+            if (element) {
+              clearTimeout(timeoutId);
+              obs.disconnect();
+              debugLog(`Found element: ${selector}`);
+              resolve(element);
+              return;
+            }
           }
         }
       }
@@ -84,14 +108,30 @@ async function waitForAnyElement(selectors, timeout = 10000) {
       // Only check if nodes were added
       for (const mutation of mutations) {
         if (mutation.addedNodes.length > 0) {
-          for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-              clearTimeout(timeoutId);
-              obs.disconnect();
-              debugLog(`Found element: ${selector}`);
-              resolve({ element, selector });
-              return;
+          // Check each added node against all selectors
+          for (const node of mutation.addedNodes) {
+            // Skip non-element nodes
+            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+            
+            for (const selector of selectors) {
+              // Check if the node itself matches
+              if (node.matches && node.matches(selector)) {
+                clearTimeout(timeoutId);
+                obs.disconnect();
+                debugLog(`Found element: ${selector}`);
+                resolve({ element: node, selector });
+                return;
+              }
+              
+              // Check descendants
+              const element = node.querySelector && node.querySelector(selector);
+              if (element) {
+                clearTimeout(timeoutId);
+                obs.disconnect();
+                debugLog(`Found element: ${selector}`);
+                resolve({ element, selector });
+                return;
+              }
             }
           }
         }
@@ -227,14 +267,6 @@ function removeClonedWatchInfo() {
     debugLog('Removed cloned watch info');
   }
 }
-
-// Constant selectors for subscriber count (used in multiple places)
-const SUBSCRIBER_SELECTORS = [
-  '#owner-sub-count',
-  'ytd-video-owner-renderer #owner #subscriber-count',
-  '#subscriber-count',
-  'yt-formatted-string#owner-sub-count'
-];
 
 // Function to move watch info to top row for better visibility in theatre mode
 async function moveWatchInfoToTopRow() {
