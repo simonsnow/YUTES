@@ -20,6 +20,10 @@ const SUBSCRIBER_SELECTORS = [
   'yt-formatted-string#owner-sub-count'
 ];
 
+// Constant selector for buttons inside ytd-video-owner-renderer
+const VIDEO_OWNER_BUTTONS_SELECTOR = '#sponsor-button, #purchase-button, #analytics-button';
+const VIDEO_OWNER_BUTTONS_VISIBLE_SELECTOR = '#sponsor-button:not([hidden]), #purchase-button:not([hidden]), #analytics-button:not([hidden])';
+
 // Debug logging function
 function debugLog(...args) {
   if (settings.debugMode) {
@@ -333,7 +337,7 @@ function removeClonedWatchInfo() {
     videoOwnerRenderer.style.flexWrap = '';
     
     // Reset margin on buttons inside ytd-video-owner-renderer
-    const buttons = videoOwnerRenderer.querySelectorAll('#sponsor-button, #purchase-button, #analytics-button');
+    const buttons = videoOwnerRenderer.querySelectorAll(VIDEO_OWNER_BUTTONS_SELECTOR);
     buttons.forEach(button => {
       button.style.marginLeft = '';
     });
@@ -454,23 +458,18 @@ async function moveWatchInfoToTopRow() {
     videoOwnerRenderer.style.gap = '12px';
     videoOwnerRenderer.style.flexWrap = 'wrap';
     
-    // Find buttons inside ytd-video-owner-renderer and push them to the right
-    // Look for sponsor button, purchase button, or analytics button
-    const sponsorButton = videoOwnerRenderer.querySelector('#sponsor-button:not([hidden])');
-    const purchaseButton = videoOwnerRenderer.querySelector('#purchase-button:not([hidden])');
-    const analyticsButton = videoOwnerRenderer.querySelector('#analytics-button:not([hidden])');
-    
-    // Push the first visible button to the right with margin-left: auto
-    const firstButton = sponsorButton || purchaseButton || analyticsButton;
-    if (firstButton) {
-      firstButton.style.marginLeft = 'auto';
+    // Find the first visible button inside ytd-video-owner-renderer and push it to the right
+    // This will work regardless of which button appears first in the DOM
+    const firstVisibleButton = videoOwnerRenderer.querySelector(VIDEO_OWNER_BUTTONS_VISIBLE_SELECTOR);
+    if (firstVisibleButton) {
+      firstVisibleButton.style.marginLeft = 'auto';
     }
   }
   
   if (subscribeButton) {
     // Push the subscribe button to the right (or keep it right if buttons above are already pushed)
-    // Only apply margin-left: auto if there are no buttons inside ytd-video-owner-renderer
-    const videoOwnerButtons = videoOwnerRenderer?.querySelectorAll('#sponsor-button:not([hidden]), #purchase-button:not([hidden]), #analytics-button:not([hidden])');
+    // Only apply margin-left: auto if there are no visible buttons inside ytd-video-owner-renderer
+    const videoOwnerButtons = videoOwnerRenderer?.querySelectorAll(VIDEO_OWNER_BUTTONS_VISIBLE_SELECTOR);
     if (!videoOwnerButtons || videoOwnerButtons.length === 0) {
       subscribeButton.style.marginLeft = 'auto';
     }
