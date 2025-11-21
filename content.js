@@ -459,7 +459,9 @@ async function moveWatchInfoToTopRow() {
     videoOwnerRenderer.style.flexWrap = 'wrap';
     
     // Find the first visible button inside ytd-video-owner-renderer and push it to the right
-    // This will work regardless of which button appears first in the DOM
+    // This uses querySelector which returns the first matching element in document order
+    // Note: We only apply margin-left: auto to the first button to create a divider between
+    // channel info/watch info and the buttons. Additional buttons will naturally group with it.
     const firstVisibleButton = videoOwnerRenderer.querySelector(VIDEO_OWNER_BUTTONS_VISIBLE_SELECTOR);
     if (firstVisibleButton) {
       firstVisibleButton.style.marginLeft = 'auto';
@@ -467,8 +469,8 @@ async function moveWatchInfoToTopRow() {
   }
   
   if (subscribeButton) {
-    // Push the subscribe button to the right (or keep it right if buttons above are already pushed)
-    // Only apply margin-left: auto if there are no visible buttons inside ytd-video-owner-renderer
+    // Push the subscribe button to the right only if there are no visible buttons inside ytd-video-owner-renderer
+    // If there are buttons inside, they will be pushed right and subscribe button will follow naturally
     const videoOwnerButtons = videoOwnerRenderer?.querySelectorAll(VIDEO_OWNER_BUTTONS_VISIBLE_SELECTOR);
     if (!videoOwnerButtons || videoOwnerButtons.length === 0) {
       subscribeButton.style.marginLeft = 'auto';
