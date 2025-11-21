@@ -62,7 +62,7 @@ function extractViewsAndDate(infoEl) {
     const trimmed = part.trim();
     // Include if it contains "view" (views/view count) or looks like a date
     if (trimmed && (
-      /\d+.*view/i.test(trimmed) || // Contains number followed by "view"
+      /\d+[,\s]*views?/i.test(trimmed) || // Contains number followed by "view" or "views"
       /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(trimmed) || // Month name
       /\d+\s*(hour|day|week|month|year)/i.test(trimmed) || // Relative date
       /\b([12]?[0-9]|3[01]),\s*\d{4}/.test(trimmed) // Date format like "Nov 21, 2025"
