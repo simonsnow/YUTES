@@ -406,6 +406,23 @@ async function moveWatchInfoToTopRow() {
     debugLog('Inserted watch info after subscriber count (fallback)');
   }
   
+  // Ensure subscribe button and other buttons are right-justified
+  // Find the #owner container and #subscribe-button
+  const ownerContainer = document.querySelector('#top-row #owner');
+  const subscribeButton = document.querySelector('#top-row #subscribe-button');
+  
+  if (ownerContainer) {
+    // Make sure the owner container uses flex layout with proper spacing
+    ownerContainer.style.display = 'flex';
+    ownerContainer.style.alignItems = 'center';
+    ownerContainer.style.gap = '12px';
+  }
+  
+  if (subscribeButton) {
+    // Push the subscribe button to the right
+    subscribeButton.style.marginLeft = 'auto';
+  }
+  
   // Set up watcher for view count changes
   setupViewCountWatcher();
   
