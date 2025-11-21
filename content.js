@@ -27,6 +27,53 @@ function debugLog(...args) {
   }
 }
 
+// Extract and filter info text to only include views and date posted
+function extractViewsAndDate(infoEl) {
+  const textNodes = [];
+  
+  // Walk through all child nodes and collect text that's NOT in an anchor tag
+  const walker = document.createTreeWalker(infoEl, NodeFilter.SHOW_TEXT, null);
+  let node;
+  while (node = walker.nextNode()) {
+    // Check if this text node is inside an anchor tag
+    let parent = node.parentElement;
+    let isInLink = false;
+    while (parent && parent !== infoEl) {
+      if (parent.tagName === 'A') {
+        isInLink = true;
+        break;
+      }
+      parent = parent.parentElement;
+    }
+    
+    if (!isInLink && node.textContent.trim()) {
+      textNodes.push(node.textContent.trim());
+    }
+  }
+  
+  // Join all non-link text and filter to only views and date
+  const allText = textNodes.join(' ').replace(/\s+/g, ' ').trim();
+  
+  // Extract only the parts we want: views and date
+  const parts = allText.split(/\s{2,}|\n/); // Split by multiple spaces or newlines
+  const filtered = [];
+  
+  for (const part of parts) {
+    const trimmed = part.trim();
+    // Include if it contains "view" (views/view count) or looks like a date
+    if (trimmed && (
+      /\d+.*view/i.test(trimmed) || // Contains number followed by "view"
+      /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(trimmed) || // Month name
+      /\d+\s*(hour|day|week|month|year)/i.test(trimmed) || // Relative date
+      /\b([12]?[0-9]|3[01]),\s*\d{4}/.test(trimmed) // Date format like "Nov 21, 2025"
+    )) {
+      filtered.push(trimmed);
+    }
+  }
+  
+  return filtered.join(' ');
+}
+
 // Utility function to wait for an element to exist in the DOM
 function waitForElement(selector, timeout = 10000) {
   return new Promise((resolve, reject) => {
@@ -318,52 +365,7 @@ async function moveWatchInfoToTopRow() {
   // Get text content but ONLY views and date posted
   // Exclude links (hashtags, "Members first", "Products", etc.)
   // Exclude all other unwanted text
-  let infoText = '';
-  const textNodes = [];
-  
-  // Walk through all child nodes and collect text that's NOT in an anchor tag
-  const walker = document.createTreeWalker(infoEl, NodeFilter.SHOW_TEXT, null);
-  let node;
-  while (node = walker.nextNode()) {
-    // Check if this text node is inside an anchor tag
-    let parent = node.parentElement;
-    let isInLink = false;
-    while (parent && parent !== infoEl) {
-      if (parent.tagName === 'A') {
-        isInLink = true;
-        break;
-      }
-      parent = parent.parentElement;
-    }
-    
-    if (!isInLink && node.textContent.trim()) {
-      textNodes.push(node.textContent.trim());
-    }
-  }
-  
-  // Join all non-link text and filter to only views and date
-  const allText = textNodes.join(' ').replace(/\s+/g, ' ').trim();
-  
-  // Extract only the parts we want: views and date
-  // Pattern: "X views" followed by date info (could be various formats)
-  // We'll use a more precise approach: split by common delimiters and filter
-  const parts = allText.split(/\s{2,}|\n/); // Split by multiple spaces or newlines
-  const filtered = [];
-  
-  for (const part of parts) {
-    const trimmed = part.trim();
-    // Include if it contains "view" (views/view count) or looks like a date
-    if (trimmed && (
-      /\d+.*view/i.test(trimmed) || // Contains number followed by "view"
-      /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(trimmed) || // Month name
-      /\d+\s*(hour|day|week|month|year)/i.test(trimmed) || // Relative date
-      /\d{1,2},\s*\d{4}/.test(trimmed) // Date format like "Nov 21, 2025"
-    )) {
-      filtered.push(trimmed);
-    }
-  }
-  
-  infoText = filtered.join(' ');
+  const infoText = extractViewsAndDate(infoEl);
   
   debugLog('Filtered info text (no links):', infoText);
   
@@ -454,48 +456,8 @@ function setupViewCountWatcher() {
   const updateInfoText = () => {
     const lastInfoText = clonedInfo.dataset.lastInfoText || '';
     
-    // Apply the same filtering as initial load - exclude text from anchor tags
-    const textNodes = [];
-    const walker = document.createTreeWalker(infoEl, NodeFilter.SHOW_TEXT, null);
-    let node;
-    while (node = walker.nextNode()) {
-      // Check if this text node is inside an anchor tag
-      let parent = node.parentElement;
-      let isInLink = false;
-      while (parent && parent !== infoEl) {
-        if (parent.tagName === 'A') {
-          isInLink = true;
-          break;
-        }
-        parent = parent.parentElement;
-      }
-      
-      if (!isInLink && node.textContent.trim()) {
-        textNodes.push(node.textContent.trim());
-      }
-    }
-    
-    // Join all non-link text and filter to only views and date
-    const allText = textNodes.join(' ').replace(/\s+/g, ' ').trim();
-    
-    // Extract only the parts we want: views and date
-    const parts = allText.split(/\s{2,}|\n/); // Split by multiple spaces or newlines
-    const filtered = [];
-    
-    for (const part of parts) {
-      const trimmed = part.trim();
-      // Include if it contains "view" (views/view count) or looks like a date
-      if (trimmed && (
-        /\d+.*view/i.test(trimmed) || // Contains number followed by "view"
-        /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(trimmed) || // Month name
-        /\d+\s*(hour|day|week|month|year)/i.test(trimmed) || // Relative date
-        /\d{1,2},\s*\d{4}/.test(trimmed) // Date format like "Nov 21, 2025"
-      )) {
-        filtered.push(trimmed);
-      }
-    }
-    
-    const newInfoText = filtered.join(' ');
+    // Apply the same filtering as initial load
+    const newInfoText = extractViewsAndDate(infoEl);
     
     debugLog('Checking for changes - Last:', lastInfoText, '| New:', newInfoText);
     
