@@ -65,7 +65,7 @@ function extractViewsAndDate(infoEl) {
     if (trimmed && (
       /\d+[,\s]*views?/i.test(trimmed) || // Contains number followed by "view" or "views"
       /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(trimmed) || // Month name
-      /\d+\s*(hour|day|week|month|year)/i.test(trimmed) || // Relative date
+      /\d+\s*(hours?|days?|weeks?|months?|years?)(\s+ago)?\b/i.test(trimmed) || // Relative date
       /\b([1-9]|[12][0-9]|3[01]),\s*\d{4}\b/.test(trimmed) // Date format like "Nov 21, 2025"
     )) {
       filtered.push(trimmed);
