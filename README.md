@@ -31,7 +31,9 @@ A browser extension that enhances your YouTube experience with custom hotkeys, t
 
 ### Chrome / Edge / Brave
 
-1. Download or clone this repository
+1. Download or clone this repository:
+   - Click the green "Code" button on GitHub and select "Download ZIP", then extract it
+   - Or use git: `git clone https://github.com/simonsnow/YUTES.git`
 2. Open your browser's extension management page:
    - Chrome: `chrome://extensions/`
    - Edge: `edge://extensions/`
@@ -89,9 +91,9 @@ A browser extension that enhances your YouTube experience with custom hotkeys, t
 
 ## Configuration
 
-The extension stores your settings using Chrome's sync storage, which means:
+The extension stores your settings using your browser's sync storage, which means:
 - Settings are automatically saved when you make changes
-- Settings sync across devices where you're signed in with the same browser account
+- Settings sync across devices where you're signed in with the same browser account (sync behavior may vary by browser)
 - No manual save or export is required
 
 ### Default Settings
@@ -154,7 +156,7 @@ YUTES:
 
 ## License
 
-This project is open source. Feel free to use, modify, and distribute it.
+This project is provided as-is for personal use. Please check with the repository owner regarding specific licensing terms for redistribution or commercial use.
 
 ## Support
 
