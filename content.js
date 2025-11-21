@@ -266,6 +266,16 @@ function removeClonedWatchInfo() {
     clonedElement.remove();
     debugLog('Removed cloned watch info');
   }
+  
+  // Clean up observers
+  if (viewCountObserver) {
+    viewCountObserver.disconnect();
+    viewCountObserver = null;
+  }
+  if (infoContainerObserver) {
+    infoContainerObserver.disconnect();
+    infoContainerObserver = null;
+  }
 }
 
 // Function to move watch info to top row for better visibility in theatre mode
@@ -549,6 +559,8 @@ new MutationObserver(() => {
     
     // YouTube uses AJAX navigation, so we need to re-initialize
     debugLog('Navigation detected, initializing watch info...');
+    // Remove old cloned info before reinitializing
+    removeClonedWatchInfo();
     // Use async initialization
     if (settings.showWatchInfoInTopRow) {
       initializeWatchInfo();
