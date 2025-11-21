@@ -382,6 +382,52 @@ async function moveWatchInfoToTopRow() {
 }
 
 // Move buttons to actions area
+// Helper function to ensure element visibility after moving
+// This is necessary because YouTube's Polymer components may lose their rendering state
+// when moved in the DOM, resulting in elements that exist but are not visible
+function ensureElementVisibility(element, elementName) {
+  if (!element) return;
+  
+  try {
+    // Explicitly set visibility and display properties
+    element.style.visibility = 'visible';
+    element.style.removeProperty('display');  // Remove any inline display property
+    element.style.opacity = '1';
+    
+    // Force style recalculation to trigger re-render
+    // This is required for YouTube's Polymer components to properly update after being moved
+    void element.offsetHeight;
+    
+    // Use requestAnimationFrame to ensure styles are applied after browser rendering
+    requestAnimationFrame(() => {
+      try {
+        // Check computed styles and override if hidden
+        // Get computed style once to avoid multiple expensive recalculations
+        const computedStyle = window.getComputedStyle(element);
+        
+        if (computedStyle.display === 'none') {
+          // Use inline-block as it's the most common for button-like elements
+          element.style.display = 'inline-block';
+          debugLog(`Forced display:inline-block on ${elementName}`);
+        }
+        
+        if (computedStyle.visibility === 'hidden') {
+          element.style.visibility = 'visible';
+          debugLog(`Forced visibility:visible on ${elementName}`);
+        }
+        
+        // Force another style recalculation to ensure changes take effect
+        void element.offsetHeight;
+        debugLog(`Ensured visibility for ${elementName}`);
+      } catch (error) {
+        debugLog(`Error in requestAnimationFrame for ${elementName}:`, error.message);
+      }
+    });
+  } catch (error) {
+    debugLog(`Error ensuring visibility for ${elementName}:`, error.message);
+  }
+}
+
 async function moveButtonsToActions() {
   let actionsMenu;
   
@@ -402,6 +448,7 @@ async function moveButtonsToActions() {
     debugLog('Moving Subscribe button to actions area');
     actionsMenu.insertAdjacentElement('afterbegin', subscribeButton);
     subscribeButton.style.marginRight = '8px';
+    ensureElementVisibility(subscribeButton, 'Subscribe button');
   }
   
   // Move notification preference button
@@ -410,6 +457,7 @@ async function moveButtonsToActions() {
     debugLog('Moving notification button to actions area');
     actionsMenu.insertAdjacentElement('afterbegin', notificationButton);
     notificationButton.style.marginRight = '8px';
+    ensureElementVisibility(notificationButton, 'Notification button');
   }
   
   // Move Join button (sponsor-button) if it exists
@@ -418,6 +466,7 @@ async function moveButtonsToActions() {
     debugLog('Moving Join/Sponsor button to actions area');
     actionsMenu.insertAdjacentElement('afterbegin', sponsorButton);
     sponsorButton.style.marginRight = '8px';
+    ensureElementVisibility(sponsorButton, 'Join/Sponsor button');
   }
   
   // Move Purchase button if it exists and is not hidden
@@ -426,6 +475,7 @@ async function moveButtonsToActions() {
     debugLog('Moving Purchase button to actions area');
     actionsMenu.insertAdjacentElement('afterbegin', purchaseButton);
     purchaseButton.style.marginRight = '8px';
+    ensureElementVisibility(purchaseButton, 'Purchase button');
   }
   
   debugLog('Button move complete');
