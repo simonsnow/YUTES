@@ -12,11 +12,145 @@ let settings = {
   showWatchInfoInTopRow: true
 };
 
+// Constant selectors for subscriber count (used in multiple places)
+const SUBSCRIBER_SELECTORS = [
+  '#owner-sub-count',
+  'ytd-video-owner-renderer #owner #subscriber-count',
+  '#subscriber-count',
+  'yt-formatted-string#owner-sub-count'
+];
+
 // Debug logging function
 function debugLog(...args) {
   if (settings.debugMode) {
     console.log('[YUTES]', ...args);
   }
+}
+
+// Utility function to wait for an element to exist in the DOM
+function waitForElement(selector, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    // Check if element already exists
+    const element = document.querySelector(selector);
+    if (element) {
+      debugLog(`Element ${selector} already exists`);
+      resolve(element);
+      return;
+    }
+    
+    debugLog(`Waiting for element: ${selector}`);
+    
+    // Set up MutationObserver first
+    const observer = new MutationObserver((mutations, obs) => {
+      // Only check if nodes were added
+      for (const mutation of mutations) {
+        if (mutation.addedNodes.length === 0) continue;
+        
+        // Check if any added node or its descendants match the selector
+        for (const node of mutation.addedNodes) {
+          // Skip non-element nodes (text nodes, comments, etc.)
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          
+          // Check if the node itself matches
+          if (node.matches(selector)) {
+            clearTimeout(timeoutId);
+            obs.disconnect();
+            debugLog(`Found element: ${selector}`);
+            resolve(node);
+            return;
+          }
+          
+          // Check descendants
+          const element = node.querySelector(selector);
+          if (element) {
+            clearTimeout(timeoutId);
+            obs.disconnect();
+            debugLog(`Found element: ${selector}`);
+            resolve(element);
+            return;
+          }
+        }
+      }
+    });
+    
+    // Set up timeout (after observer is declared)
+    const timeoutId = setTimeout(() => {
+      observer.disconnect();
+      debugLog(`Timeout waiting for element: ${selector}`);
+      reject(new Error(`Timeout waiting for element: ${selector}`));
+    }, timeout);
+    
+    // Start observing
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
+// Utility function to wait for multiple elements (tries each selector until one works)
+async function waitForAnyElement(selectors, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    // Check if any element already exists
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        debugLog(`Element ${selector} already exists`);
+        resolve({ element, selector });
+        return;
+      }
+    }
+    
+    debugLog(`Waiting for any of: ${selectors.join(', ')}`);
+    
+    // Set up MutationObserver first
+    const observer = new MutationObserver((mutations, obs) => {
+      // Only check if nodes were added
+      for (const mutation of mutations) {
+        if (mutation.addedNodes.length === 0) continue;
+        
+        // Check each added node against all selectors
+        for (const node of mutation.addedNodes) {
+          // Skip non-element nodes
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          
+          for (const selector of selectors) {
+            // Check if the node itself matches
+            if (node.matches(selector)) {
+              clearTimeout(timeoutId);
+              obs.disconnect();
+              debugLog(`Found element: ${selector}`);
+              resolve({ element: node, selector });
+              return;
+            }
+            
+            // Check descendants
+            const element = node.querySelector(selector);
+            if (element) {
+              clearTimeout(timeoutId);
+              obs.disconnect();
+              debugLog(`Found element: ${selector}`);
+              resolve({ element, selector });
+              return;
+            }
+          }
+        }
+      }
+    });
+    
+    // Set up timeout (after observer is declared)
+    const timeoutId = setTimeout(() => {
+      observer.disconnect();
+      debugLog(`Timeout waiting for any of: ${selectors.join(', ')}`);
+      reject(new Error(`Timeout waiting for any of: ${selectors.join(', ')}`));
+    }, timeout);
+    
+    // Start observing
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
 }
 
 // Load saved hotkeys and settings from storage
@@ -34,12 +168,21 @@ chrome.storage.sync.get(['hotkeys', 'settings', 'customShortcuts'], function(res
     debugLog('Loaded settings:', settings);
   }
   // Initialize watch info feature if enabled
-  // Wait for page to be more fully loaded
   if (settings.showWatchInfoInTopRow) {
     debugLog('Scheduling initial watch info setup...');
-    setTimeout(moveWatchInfoToTopRow, 2000);
+    // Use async initialization
+    initializeWatchInfo();
   }
 });
+
+// Async initialization function
+async function initializeWatchInfo() {
+  try {
+    await moveWatchInfoToTopRow();
+  } catch (error) {
+    debugLog('Error in initial watch info setup:', error);
+  }
+}
 
 // Listen for storage changes
 chrome.storage.onChanged.addListener(function(changes, namespace) {
@@ -59,7 +202,8 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
     if (changes.settings.newValue.showWatchInfoInTopRow === false) {
       removeClonedWatchInfo();
     } else if (changes.settings.newValue.showWatchInfoInTopRow === true) {
-      moveWatchInfoToTopRow();
+      // Use async call
+      initializeWatchInfo();
     }
   }
 });
@@ -125,7 +269,7 @@ function removeClonedWatchInfo() {
 }
 
 // Function to move watch info to top row for better visibility in theatre mode
-function moveWatchInfoToTopRow() {
+async function moveWatchInfoToTopRow() {
   // Check if feature is enabled
   if (!settings.showWatchInfoInTopRow) {
     debugLog('Watch info feature is disabled, skipping');
@@ -141,36 +285,23 @@ function moveWatchInfoToTopRow() {
     return;
   }
   
-  // Find the destination: Try multiple selectors for subscriber count area
-  const subscriberSelectors = [
-    '#owner-sub-count',
-    'ytd-video-owner-renderer #owner #subscriber-count',
-    '#subscriber-count',
-    'yt-formatted-string#owner-sub-count'
-  ];
+  let subscriberCount;
+  let infoEl;
   
-  let subscriberCount = null;
-  for (const selector of subscriberSelectors) {
-    subscriberCount = document.querySelector(selector);
-    if (subscriberCount) {
-      debugLog('Found subscriber count with selector:', selector);
-      break;
-    }
-  }
-  
-  if (!subscriberCount) {
-    debugLog('Subscriber count not found yet');
-    return;
-  }
-  
-  // Find the info element that contains the complete view count and date text
-  // Structure: ytd-watch-info-text #info-container #info
-  const infoEl = document.querySelector('ytd-watch-info-text #info');
-  
-  debugLog('Info element found:', !!infoEl);
-  
-  if (!infoEl) {
-    debugLog('Info element not found yet');
+  try {
+    // Wait for the subscriber count element (trying multiple selectors)
+    debugLog('Waiting for subscriber count element...');
+    const result = await waitForAnyElement(SUBSCRIBER_SELECTORS, 10000);
+    subscriberCount = result.element;
+    debugLog('Found subscriber count with selector:', result.selector);
+    
+    // Wait for the info element
+    debugLog('Waiting for info element...');
+    infoEl = await waitForElement('ytd-watch-info-text #info', 10000);
+    
+    debugLog('All required elements found, proceeding with move...');
+  } catch (error) {
+    debugLog('Error waiting for elements:', error.message);
     return;
   }
   
@@ -242,31 +373,27 @@ function moveWatchInfoToTopRow() {
   // Set up watcher for view count changes
   setupViewCountWatcher();
   
-  // Move buttons to the actions area (with retry)
-  moveButtonsToActions();
+  // Move buttons to the actions area (with retry) - run independently
+  moveButtonsToActions().catch(error => {
+    debugLog('Error moving buttons:', error.message);
+  });
   
   debugLog('Successfully cloned watch info to top row:', infoText);
 }
 
-// Move buttons to actions area with retry logic
-let buttonMoveAttempts = 0;
-const MAX_BUTTON_MOVE_ATTEMPTS = 10;
-function moveButtonsToActions() {
-  const actionsMenu = document.querySelector('#top-level-buttons-computed');
+// Move buttons to actions area
+async function moveButtonsToActions() {
+  let actionsMenu;
   
-  if (!actionsMenu) {
-    buttonMoveAttempts++;
-    if (buttonMoveAttempts < MAX_BUTTON_MOVE_ATTEMPTS) {
-      debugLog(`Actions menu not found, retrying (${buttonMoveAttempts}/${MAX_BUTTON_MOVE_ATTEMPTS})...`);
-      setTimeout(moveButtonsToActions, 200);
-    } else {
-      debugLog('Actions menu not found after max attempts, giving up');
-      buttonMoveAttempts = 0;
-    }
+  try {
+    // Wait for the actions menu to be available
+    debugLog('Waiting for actions menu...');
+    actionsMenu = await waitForElement('#top-level-buttons-computed', 10000);
+  } catch (error) {
+    debugLog('Actions menu not found after timeout:', error.message);
     return;
   }
   
-  buttonMoveAttempts = 0; // Reset on success
   debugLog('Moving buttons to actions area...');
   
   // Move Subscribe button if it exists
@@ -413,48 +540,21 @@ function setupViewCountWatcher() {
 
 // Re-initialize when navigating between YouTube pages
 let lastUrl = location.href;
-let retryCount = 0;
-const MAX_RETRIES = 15;
-let retryTimeout = null;
 
+// Navigation observer - watches for URL changes
 new MutationObserver(() => {
   const url = location.href;
   if (url !== lastUrl) {
     lastUrl = url;
-    retryCount = 0; // Reset retry count on navigation
-    buttonMoveAttempts = 0; // Reset button move attempts
     
-    // Clear any pending retries
-    if (retryTimeout) {
-      clearTimeout(retryTimeout);
-      retryTimeout = null;
-    }
-    
-    // YouTube uses AJAX navigation, so we need to re-check for buttons
-    // Add a delay to let the page load
-    debugLog('Navigation detected, waiting for page load...');
-    setTimeout(() => {
-      moveWatchInfoToTopRow();
-    }, 1000);
-  } else if (retryCount < MAX_RETRIES) {
-    // Only retry if we haven't exceeded max retries and if the cloned element doesn't exist yet
-    const alreadyExists = document.querySelector('#cloned-watch-info');
-    const actionsMenu = document.querySelector('#top-level-buttons-computed');
-    
-    if (!alreadyExists && settings.showWatchInfoInTopRow && actionsMenu) {
-      retryCount++;
-      debugLog(`Retrying watch info setup (${retryCount}/${MAX_RETRIES})...`);
-      retryTimeout = setTimeout(() => {
-        moveWatchInfoToTopRow();
-      }, 300);
+    // YouTube uses AJAX navigation, so we need to re-initialize
+    debugLog('Navigation detected, initializing watch info...');
+    // Use async initialization
+    if (settings.showWatchInfoInTopRow) {
+      initializeWatchInfo();
     }
   }
 }).observe(document, { subtree: true, childList: true });
-
-// Initial call to move watch info (with multiple retries to ensure content loads)
-setTimeout(moveWatchInfoToTopRow, 1000);
-setTimeout(moveWatchInfoToTopRow, 2000);
-setTimeout(moveWatchInfoToTopRow, 3000);
 
 // Element Picker functionality
 let pickerActive = false;
