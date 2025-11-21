@@ -19,6 +19,89 @@ function debugLog(...args) {
   }
 }
 
+// Utility function to wait for an element to exist in the DOM
+function waitForElement(selector, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    // Check if element already exists
+    const element = document.querySelector(selector);
+    if (element) {
+      debugLog(`Element ${selector} already exists`);
+      resolve(element);
+      return;
+    }
+    
+    debugLog(`Waiting for element: ${selector}`);
+    
+    // Set up timeout
+    const timeoutId = setTimeout(() => {
+      observer.disconnect();
+      debugLog(`Timeout waiting for element: ${selector}`);
+      reject(new Error(`Timeout waiting for element: ${selector}`));
+    }, timeout);
+    
+    // Set up MutationObserver
+    const observer = new MutationObserver((mutations, obs) => {
+      const element = document.querySelector(selector);
+      if (element) {
+        clearTimeout(timeoutId);
+        obs.disconnect();
+        debugLog(`Found element: ${selector}`);
+        resolve(element);
+      }
+    });
+    
+    // Start observing
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
+// Utility function to wait for multiple elements (tries each selector until one works)
+async function waitForAnyElement(selectors, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    // Check if any element already exists
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        debugLog(`Element ${selector} already exists`);
+        resolve({ element, selector });
+        return;
+      }
+    }
+    
+    debugLog(`Waiting for any of: ${selectors.join(', ')}`);
+    
+    // Set up timeout
+    const timeoutId = setTimeout(() => {
+      observer.disconnect();
+      debugLog(`Timeout waiting for any of: ${selectors.join(', ')}`);
+      reject(new Error(`Timeout waiting for any of: ${selectors.join(', ')}`));
+    }, timeout);
+    
+    // Set up MutationObserver
+    const observer = new MutationObserver((mutations, obs) => {
+      for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element) {
+          clearTimeout(timeoutId);
+          obs.disconnect();
+          debugLog(`Found element: ${selector}`);
+          resolve({ element, selector });
+          return;
+        }
+      }
+    });
+    
+    // Start observing
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
 // Load saved hotkeys and settings from storage
 chrome.storage.sync.get(['hotkeys', 'settings', 'customShortcuts'], function(result) {
   if (result.hotkeys) {
@@ -34,12 +117,21 @@ chrome.storage.sync.get(['hotkeys', 'settings', 'customShortcuts'], function(res
     debugLog('Loaded settings:', settings);
   }
   // Initialize watch info feature if enabled
-  // Wait for page to be more fully loaded
   if (settings.showWatchInfoInTopRow) {
     debugLog('Scheduling initial watch info setup...');
-    setTimeout(moveWatchInfoToTopRow, 2000);
+    // Use async initialization
+    initializeWatchInfo();
   }
 });
+
+// Async initialization function
+async function initializeWatchInfo() {
+  try {
+    await moveWatchInfoToTopRow();
+  } catch (error) {
+    debugLog('Error in initial watch info setup:', error);
+  }
+}
 
 // Listen for storage changes
 chrome.storage.onChanged.addListener(function(changes, namespace) {
@@ -59,7 +151,8 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
     if (changes.settings.newValue.showWatchInfoInTopRow === false) {
       removeClonedWatchInfo();
     } else if (changes.settings.newValue.showWatchInfoInTopRow === true) {
-      moveWatchInfoToTopRow();
+      // Use async call
+      initializeWatchInfo();
     }
   }
 });
@@ -125,7 +218,7 @@ function removeClonedWatchInfo() {
 }
 
 // Function to move watch info to top row for better visibility in theatre mode
-function moveWatchInfoToTopRow() {
+async function moveWatchInfoToTopRow() {
   // Check if feature is enabled
   if (!settings.showWatchInfoInTopRow) {
     debugLog('Watch info feature is disabled, skipping');
@@ -141,7 +234,28 @@ function moveWatchInfoToTopRow() {
     return;
   }
   
-  // Find the destination: Try multiple selectors for subscriber count area
+  try {
+    // Wait for the subscriber count element (trying multiple selectors)
+    debugLog('Waiting for subscriber count element...');
+    const subscriberSelectors = [
+      '#owner-sub-count',
+      'ytd-video-owner-renderer #owner #subscriber-count',
+      '#subscriber-count',
+      'yt-formatted-string#owner-sub-count'
+    ];
+    const { element: subscriberCount } = await waitForAnyElement(subscriberSelectors, 15000);
+    
+    // Wait for the info element
+    debugLog('Waiting for info element...');
+    const infoEl = await waitForElement('ytd-watch-info-text #info', 15000);
+    
+    debugLog('All required elements found, proceeding with move...');
+  } catch (error) {
+    debugLog('Error waiting for elements:', error.message);
+    return;
+  }
+  
+  // Re-fetch elements after waiting (to ensure they're still in DOM)
   const subscriberSelectors = [
     '#owner-sub-count',
     'ytd-video-owner-renderer #owner #subscriber-count',
@@ -159,18 +273,13 @@ function moveWatchInfoToTopRow() {
   }
   
   if (!subscriberCount) {
-    debugLog('Subscriber count not found yet');
+    debugLog('Subscriber count disappeared after waiting');
     return;
   }
   
-  // Find the info element that contains the complete view count and date text
-  // Structure: ytd-watch-info-text #info-container #info
   const infoEl = document.querySelector('ytd-watch-info-text #info');
-  
-  debugLog('Info element found:', !!infoEl);
-  
   if (!infoEl) {
-    debugLog('Info element not found yet');
+    debugLog('Info element disappeared after waiting');
     return;
   }
   
@@ -251,10 +360,11 @@ function moveWatchInfoToTopRow() {
 // Move buttons to actions area with retry logic
 let buttonMoveAttempts = 0;
 const MAX_BUTTON_MOVE_ATTEMPTS = 10;
-function moveButtonsToActions() {
-  const actionsMenu = document.querySelector('#top-level-buttons-computed');
-  
-  if (!actionsMenu) {
+async function moveButtonsToActions() {
+  try {
+    // Wait for the actions menu to be available
+    await waitForElement('#top-level-buttons-computed', 10000);
+  } catch (error) {
     buttonMoveAttempts++;
     if (buttonMoveAttempts < MAX_BUTTON_MOVE_ATTEMPTS) {
       debugLog(`Actions menu not found, retrying (${buttonMoveAttempts}/${MAX_BUTTON_MOVE_ATTEMPTS})...`);
@@ -263,6 +373,12 @@ function moveButtonsToActions() {
       debugLog('Actions menu not found after max attempts, giving up');
       buttonMoveAttempts = 0;
     }
+    return;
+  }
+  
+  const actionsMenu = document.querySelector('#top-level-buttons-computed');
+  if (!actionsMenu) {
+    debugLog('Actions menu disappeared after wait');
     return;
   }
   
@@ -431,11 +547,9 @@ new MutationObserver(() => {
     }
     
     // YouTube uses AJAX navigation, so we need to re-check for buttons
-    // Add a delay to let the page load
-    debugLog('Navigation detected, waiting for page load...');
-    setTimeout(() => {
-      moveWatchInfoToTopRow();
-    }, 1000);
+    debugLog('Navigation detected, initializing watch info...');
+    // Use async initialization
+    initializeWatchInfo();
   } else if (retryCount < MAX_RETRIES) {
     // Only retry if we haven't exceeded max retries and if the cloned element doesn't exist yet
     const alreadyExists = document.querySelector('#cloned-watch-info');
@@ -445,16 +559,14 @@ new MutationObserver(() => {
       retryCount++;
       debugLog(`Retrying watch info setup (${retryCount}/${MAX_RETRIES})...`);
       retryTimeout = setTimeout(() => {
-        moveWatchInfoToTopRow();
+        initializeWatchInfo();
       }, 300);
     }
   }
 }).observe(document, { subtree: true, childList: true });
 
-// Initial call to move watch info (with multiple retries to ensure content loads)
-setTimeout(moveWatchInfoToTopRow, 1000);
-setTimeout(moveWatchInfoToTopRow, 2000);
-setTimeout(moveWatchInfoToTopRow, 3000);
+// Initial calls no longer needed with proper async waiting
+// The initializeWatchInfo() call from storage load will handle it
 
 // Element Picker functionality
 let pickerActive = false;
