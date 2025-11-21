@@ -388,33 +388,44 @@ async function moveWatchInfoToTopRow() {
 function ensureElementVisibility(element, elementName) {
   if (!element) return;
   
-  // Explicitly set visibility and display properties
-  element.style.visibility = 'visible';
-  element.style.removeProperty('display');  // Remove any inline display property
-  element.style.opacity = '1';
-  
-  // Force style recalculation to trigger re-render
-  // This is required for YouTube's Polymer components to properly update after being moved
-  void element.offsetHeight;
-  
-  // Use requestAnimationFrame to ensure styles are applied after browser rendering
-  requestAnimationFrame(() => {
-    // Check computed styles and override if hidden
-    const computedStyle = window.getComputedStyle(element);
-    if (computedStyle.display === 'none') {
-      // Use inline-block as it's the most common for button-like elements
-      element.style.display = 'inline-block';
-      debugLog(`Forced display:inline-block on ${elementName}`);
-    }
-    if (computedStyle.visibility === 'hidden') {
-      element.style.visibility = 'visible';
-      debugLog(`Forced visibility:visible on ${elementName}`);
-    }
+  try {
+    // Explicitly set visibility and display properties
+    element.style.visibility = 'visible';
+    element.style.removeProperty('display');  // Remove any inline display property
+    element.style.opacity = '1';
     
-    // Force another style recalculation to ensure changes take effect
+    // Force style recalculation to trigger re-render
+    // This is required for YouTube's Polymer components to properly update after being moved
     void element.offsetHeight;
-    debugLog(`Ensured visibility for ${elementName}`);
-  });
+    
+    // Use requestAnimationFrame to ensure styles are applied after browser rendering
+    requestAnimationFrame(() => {
+      try {
+        // Check computed styles and override if hidden
+        // Get computed style once to avoid multiple expensive recalculations
+        const computedStyle = window.getComputedStyle(element);
+        
+        if (computedStyle.display === 'none') {
+          // Use inline-block as it's the most common for button-like elements
+          element.style.display = 'inline-block';
+          debugLog(`Forced display:inline-block on ${elementName}`);
+        }
+        
+        if (computedStyle.visibility === 'hidden') {
+          element.style.visibility = 'visible';
+          debugLog(`Forced visibility:visible on ${elementName}`);
+        }
+        
+        // Force another style recalculation to ensure changes take effect
+        void element.offsetHeight;
+        debugLog(`Ensured visibility for ${elementName}`);
+      } catch (error) {
+        debugLog(`Error in requestAnimationFrame for ${elementName}:`, error.message);
+      }
+    });
+  } catch (error) {
+    debugLog(`Error ensuring visibility for ${elementName}:`, error.message);
+  }
 }
 
 async function moveButtonsToActions() {
