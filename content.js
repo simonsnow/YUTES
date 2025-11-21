@@ -315,8 +315,9 @@ async function moveWatchInfoToTopRow() {
     return;
   }
   
-  // Get text content but exclude text from anchor tags (links)
-  // Links contain hashtags, "Members first", "Products", etc.
+  // Get text content but ONLY views and date posted
+  // Exclude links (hashtags, "Members first", "Products", etc.)
+  // Exclude all other unwanted text
   let infoText = '';
   const textNodes = [];
   
@@ -340,7 +341,29 @@ async function moveWatchInfoToTopRow() {
     }
   }
   
-  infoText = textNodes.join(' ').replace(/\s+/g, ' ').trim();
+  // Join all non-link text and filter to only views and date
+  const allText = textNodes.join(' ').replace(/\s+/g, ' ').trim();
+  
+  // Extract only the parts we want: views and date
+  // Pattern: "X views" followed by date info (could be various formats)
+  // We'll use a more precise approach: split by common delimiters and filter
+  const parts = allText.split(/\s{2,}|\n/); // Split by multiple spaces or newlines
+  const filtered = [];
+  
+  for (const part of parts) {
+    const trimmed = part.trim();
+    // Include if it contains "view" (views/view count) or looks like a date
+    if (trimmed && (
+      /\d+.*view/i.test(trimmed) || // Contains number followed by "view"
+      /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(trimmed) || // Month name
+      /\d+\s*(hour|day|week|month|year)/i.test(trimmed) || // Relative date
+      /\d{1,2},\s*\d{4}/.test(trimmed) // Date format like "Nov 21, 2025"
+    )) {
+      filtered.push(trimmed);
+    }
+  }
+  
+  infoText = filtered.join(' ');
   
   debugLog('Filtered info text (no links):', infoText);
   
@@ -383,112 +406,7 @@ async function moveWatchInfoToTopRow() {
   // Set up watcher for view count changes
   setupViewCountWatcher();
   
-  // Move buttons to the actions area (with retry) - run independently
-  moveButtonsToActions().catch(error => {
-    debugLog('Error moving buttons:', error.message);
-  });
-  
   debugLog('Successfully cloned watch info to top row:', infoText);
-}
-
-// Move buttons to actions area
-// Helper function to ensure element visibility after moving
-// This is necessary because YouTube's Polymer components may lose their rendering state
-// when moved in the DOM, resulting in elements that exist but are not visible
-function ensureElementVisibility(element, elementName) {
-  if (!element) return;
-  
-  try {
-    // Explicitly set visibility and display properties
-    element.style.visibility = 'visible';
-    element.style.removeProperty('display');  // Remove any inline display property
-    element.style.opacity = '1';
-    
-    // Force style recalculation to trigger re-render
-    // This is required for YouTube's Polymer components to properly update after being moved
-    void element.offsetHeight;
-    
-    // Use requestAnimationFrame to ensure styles are applied after browser rendering
-    requestAnimationFrame(() => {
-      try {
-        // Check computed styles and override if hidden
-        // Get computed style once to avoid multiple expensive recalculations
-        const computedStyle = window.getComputedStyle(element);
-        
-        if (computedStyle.display === 'none') {
-          // Use inline-block as it's the most common for button-like elements
-          element.style.display = 'inline-block';
-          debugLog(`Forced display:inline-block on ${elementName}`);
-        }
-        
-        if (computedStyle.visibility === 'hidden') {
-          element.style.visibility = 'visible';
-          debugLog(`Forced visibility:visible on ${elementName}`);
-        }
-        
-        // Force another style recalculation to ensure changes take effect
-        void element.offsetHeight;
-        debugLog(`Ensured visibility for ${elementName}`);
-      } catch (error) {
-        debugLog(`Error in requestAnimationFrame for ${elementName}:`, error.message);
-      }
-    });
-  } catch (error) {
-    debugLog(`Error ensuring visibility for ${elementName}:`, error.message);
-  }
-}
-
-async function moveButtonsToActions() {
-  let actionsMenu;
-  
-  try {
-    // Wait for the actions menu to be available
-    debugLog('Waiting for actions menu...');
-    actionsMenu = await waitForElement('#top-level-buttons-computed', 10000);
-  } catch (error) {
-    debugLog('Actions menu not found after timeout:', error.message);
-    return;
-  }
-  
-  debugLog('Moving buttons to actions area...');
-  
-  // Move Subscribe button if it exists
-  const subscribeButton = document.querySelector('ytd-watch-metadata #subscribe-button');
-  if (subscribeButton && subscribeButton.querySelector('ytd-subscribe-button-renderer')) {
-    debugLog('Moving Subscribe button to actions area');
-    actionsMenu.insertAdjacentElement('afterbegin', subscribeButton);
-    subscribeButton.style.marginRight = '8px';
-    ensureElementVisibility(subscribeButton, 'Subscribe button');
-  }
-  
-  // Move notification preference button
-  const notificationButton = document.querySelector('#notification-preference-button');
-  if (notificationButton && notificationButton.parentElement) {
-    debugLog('Moving notification button to actions area');
-    actionsMenu.insertAdjacentElement('afterbegin', notificationButton);
-    notificationButton.style.marginRight = '8px';
-    ensureElementVisibility(notificationButton, 'Notification button');
-  }
-  
-  // Move Join button (sponsor-button) if it exists
-  const sponsorButton = document.querySelector('ytd-video-owner-renderer #sponsor-button');
-  if (sponsorButton && sponsorButton.querySelector('timed-animation-button-renderer')) {
-    debugLog('Moving Join/Sponsor button to actions area');
-    actionsMenu.insertAdjacentElement('afterbegin', sponsorButton);
-    sponsorButton.style.marginRight = '8px';
-    ensureElementVisibility(sponsorButton, 'Join/Sponsor button');
-  }
-  
-  // Move Purchase button if it exists and is not hidden
-  const purchaseButton = document.querySelector('ytd-video-owner-renderer #purchase-button');
-  if (purchaseButton && !purchaseButton.hidden && purchaseButton.children.length > 0) {
-    debugLog('Moving Purchase button to actions area');
-    actionsMenu.insertAdjacentElement('afterbegin', purchaseButton);
-    purchaseButton.style.marginRight = '8px';
-    ensureElementVisibility(purchaseButton, 'Purchase button');
-  }
-  
-  debugLog('Button move complete');
 }
 
 // Animate number change with rolling effect
@@ -557,7 +475,27 @@ function setupViewCountWatcher() {
       }
     }
     
-    const newInfoText = textNodes.join(' ').replace(/\s+/g, ' ').trim();
+    // Join all non-link text and filter to only views and date
+    const allText = textNodes.join(' ').replace(/\s+/g, ' ').trim();
+    
+    // Extract only the parts we want: views and date
+    const parts = allText.split(/\s{2,}|\n/); // Split by multiple spaces or newlines
+    const filtered = [];
+    
+    for (const part of parts) {
+      const trimmed = part.trim();
+      // Include if it contains "view" (views/view count) or looks like a date
+      if (trimmed && (
+        /\d+.*view/i.test(trimmed) || // Contains number followed by "view"
+        /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(trimmed) || // Month name
+        /\d+\s*(hour|day|week|month|year)/i.test(trimmed) || // Relative date
+        /\d{1,2},\s*\d{4}/.test(trimmed) // Date format like "Nov 21, 2025"
+      )) {
+        filtered.push(trimmed);
+      }
+    }
+    
+    const newInfoText = filtered.join(' ');
     
     debugLog('Checking for changes - Last:', lastInfoText, '| New:', newInfoText);
     
