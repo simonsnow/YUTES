@@ -217,6 +217,14 @@ function removeClonedWatchInfo() {
   }
 }
 
+// Constant selectors for subscriber count (used in multiple places)
+const SUBSCRIBER_SELECTORS = [
+  '#owner-sub-count',
+  'ytd-video-owner-renderer #owner #subscriber-count',
+  '#subscriber-count',
+  'yt-formatted-string#owner-sub-count'
+];
+
 // Function to move watch info to top row for better visibility in theatre mode
 async function moveWatchInfoToTopRow() {
   // Check if feature is enabled
@@ -234,52 +242,23 @@ async function moveWatchInfoToTopRow() {
     return;
   }
   
+  let subscriberCount;
+  let infoEl;
+  
   try {
     // Wait for the subscriber count element (trying multiple selectors)
     debugLog('Waiting for subscriber count element...');
-    const subscriberSelectors = [
-      '#owner-sub-count',
-      'ytd-video-owner-renderer #owner #subscriber-count',
-      '#subscriber-count',
-      'yt-formatted-string#owner-sub-count'
-    ];
-    const { element: subscriberCount } = await waitForAnyElement(subscriberSelectors, 15000);
+    const result = await waitForAnyElement(SUBSCRIBER_SELECTORS, 15000);
+    subscriberCount = result.element;
+    debugLog('Found subscriber count with selector:', result.selector);
     
     // Wait for the info element
     debugLog('Waiting for info element...');
-    const infoEl = await waitForElement('ytd-watch-info-text #info', 15000);
+    infoEl = await waitForElement('ytd-watch-info-text #info', 15000);
     
     debugLog('All required elements found, proceeding with move...');
   } catch (error) {
     debugLog('Error waiting for elements:', error.message);
-    return;
-  }
-  
-  // Re-fetch elements after waiting (to ensure they're still in DOM)
-  const subscriberSelectors = [
-    '#owner-sub-count',
-    'ytd-video-owner-renderer #owner #subscriber-count',
-    '#subscriber-count',
-    'yt-formatted-string#owner-sub-count'
-  ];
-  
-  let subscriberCount = null;
-  for (const selector of subscriberSelectors) {
-    subscriberCount = document.querySelector(selector);
-    if (subscriberCount) {
-      debugLog('Found subscriber count with selector:', selector);
-      break;
-    }
-  }
-  
-  if (!subscriberCount) {
-    debugLog('Subscriber count disappeared after waiting');
-    return;
-  }
-  
-  const infoEl = document.querySelector('ytd-watch-info-text #info');
-  if (!infoEl) {
-    debugLog('Info element disappeared after waiting');
     return;
   }
   
