@@ -32,14 +32,7 @@ function waitForElement(selector, timeout = 10000) {
     
     debugLog(`Waiting for element: ${selector}`);
     
-    // Set up timeout
-    const timeoutId = setTimeout(() => {
-      observer.disconnect();
-      debugLog(`Timeout waiting for element: ${selector}`);
-      reject(new Error(`Timeout waiting for element: ${selector}`));
-    }, timeout);
-    
-    // Set up MutationObserver
+    // Set up MutationObserver first
     const observer = new MutationObserver((mutations, obs) => {
       // Only check if nodes were added
       for (const mutation of mutations) {
@@ -55,6 +48,13 @@ function waitForElement(selector, timeout = 10000) {
         }
       }
     });
+    
+    // Set up timeout (after observer is declared)
+    const timeoutId = setTimeout(() => {
+      observer.disconnect();
+      debugLog(`Timeout waiting for element: ${selector}`);
+      reject(new Error(`Timeout waiting for element: ${selector}`));
+    }, timeout);
     
     // Start observing
     observer.observe(document.body, {
@@ -79,14 +79,7 @@ async function waitForAnyElement(selectors, timeout = 10000) {
     
     debugLog(`Waiting for any of: ${selectors.join(', ')}`);
     
-    // Set up timeout
-    const timeoutId = setTimeout(() => {
-      observer.disconnect();
-      debugLog(`Timeout waiting for any of: ${selectors.join(', ')}`);
-      reject(new Error(`Timeout waiting for any of: ${selectors.join(', ')}`));
-    }, timeout);
-    
-    // Set up MutationObserver
+    // Set up MutationObserver first
     const observer = new MutationObserver((mutations, obs) => {
       // Only check if nodes were added
       for (const mutation of mutations) {
@@ -104,6 +97,13 @@ async function waitForAnyElement(selectors, timeout = 10000) {
         }
       }
     });
+    
+    // Set up timeout (after observer is declared)
+    const timeoutId = setTimeout(() => {
+      observer.disconnect();
+      debugLog(`Timeout waiting for any of: ${selectors.join(', ')}`);
+      reject(new Error(`Timeout waiting for any of: ${selectors.join(', ')}`));
+    }, timeout);
     
     // Start observing
     observer.observe(document.body, {
@@ -259,13 +259,13 @@ async function moveWatchInfoToTopRow() {
   try {
     // Wait for the subscriber count element (trying multiple selectors)
     debugLog('Waiting for subscriber count element...');
-    const result = await waitForAnyElement(SUBSCRIBER_SELECTORS, 15000);
+    const result = await waitForAnyElement(SUBSCRIBER_SELECTORS, 10000);
     subscriberCount = result.element;
     debugLog('Found subscriber count with selector:', result.selector);
     
     // Wait for the info element
     debugLog('Waiting for info element...');
-    infoEl = await waitForElement('ytd-watch-info-text #info', 15000);
+    infoEl = await waitForElement('ytd-watch-info-text #info', 10000);
     
     debugLog('All required elements found, proceeding with move...');
   } catch (error) {
