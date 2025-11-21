@@ -41,12 +41,18 @@ function waitForElement(selector, timeout = 10000) {
     
     // Set up MutationObserver
     const observer = new MutationObserver((mutations, obs) => {
-      const element = document.querySelector(selector);
-      if (element) {
-        clearTimeout(timeoutId);
-        obs.disconnect();
-        debugLog(`Found element: ${selector}`);
-        resolve(element);
+      // Only check if nodes were added
+      for (const mutation of mutations) {
+        if (mutation.addedNodes.length > 0) {
+          const element = document.querySelector(selector);
+          if (element) {
+            clearTimeout(timeoutId);
+            obs.disconnect();
+            debugLog(`Found element: ${selector}`);
+            resolve(element);
+            return;
+          }
+        }
       }
     });
     
@@ -82,14 +88,19 @@ async function waitForAnyElement(selectors, timeout = 10000) {
     
     // Set up MutationObserver
     const observer = new MutationObserver((mutations, obs) => {
-      for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        if (element) {
-          clearTimeout(timeoutId);
-          obs.disconnect();
-          debugLog(`Found element: ${selector}`);
-          resolve({ element, selector });
-          return;
+      // Only check if nodes were added
+      for (const mutation of mutations) {
+        if (mutation.addedNodes.length > 0) {
+          for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+              clearTimeout(timeoutId);
+              obs.disconnect();
+              debugLog(`Found element: ${selector}`);
+              resolve({ element, selector });
+              return;
+            }
+          }
         }
       }
     });
@@ -340,18 +351,14 @@ async function moveWatchInfoToTopRow() {
 
 // Move buttons to actions area
 async function moveButtonsToActions() {
+  let actionsMenu;
+  
   try {
     // Wait for the actions menu to be available
     debugLog('Waiting for actions menu...');
-    await waitForElement('#top-level-buttons-computed', 10000);
+    actionsMenu = await waitForElement('#top-level-buttons-computed', 10000);
   } catch (error) {
     debugLog('Actions menu not found after timeout:', error.message);
-    return;
-  }
-  
-  const actionsMenu = document.querySelector('#top-level-buttons-computed');
-  if (!actionsMenu) {
-    debugLog('Actions menu disappeared after wait');
     return;
   }
   
