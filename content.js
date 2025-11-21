@@ -34,7 +34,7 @@ function extractViewsAndDate(infoEl) {
   // Walk through all child nodes and collect text that's NOT in an anchor tag
   const walker = document.createTreeWalker(infoEl, NodeFilter.SHOW_TEXT, null);
   let node;
-  while (node = walker.nextNode()) {
+  while ((node = walker.nextNode()) !== null) {
     // Check if this text node is inside an anchor tag
     let parent = node.parentElement;
     let isInLink = false;
