@@ -55,7 +55,7 @@ function extractViewsAndDate(infoEl) {
   const allText = textNodes.join(' ').replace(/\s+/g, ' ').trim();
   
   // Extract only the parts we want: views and date
-  const parts = allText.split(/\s{2,}|\n/); // Split by multiple spaces or newlines
+  const parts = allText.split(/\s{2,}|[\n\t]/); // Split by multiple spaces, newlines, or tabs
   const filtered = [];
   
   for (const part of parts) {
