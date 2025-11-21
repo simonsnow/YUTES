@@ -383,31 +383,35 @@ async function moveWatchInfoToTopRow() {
 
 // Move buttons to actions area
 // Helper function to ensure element visibility after moving
+// This is necessary because YouTube's Polymer components may lose their rendering state
+// when moved in the DOM, resulting in elements that exist but are not visible
 function ensureElementVisibility(element, elementName) {
   if (!element) return;
   
   // Explicitly set visibility and display properties
   element.style.visibility = 'visible';
-  element.style.display = '';  // Clear any display:none, use default
+  element.style.removeProperty('display');  // Remove any inline display property
   element.style.opacity = '1';
   
   // Force style recalculation to trigger re-render
+  // This is required for YouTube's Polymer components to properly update after being moved
   void element.offsetHeight;
   
-  // Use requestAnimationFrame to ensure styles are applied
+  // Use requestAnimationFrame to ensure styles are applied after browser rendering
   requestAnimationFrame(() => {
     // Check computed styles and override if hidden
     const computedStyle = window.getComputedStyle(element);
     if (computedStyle.display === 'none') {
-      element.style.display = 'block';
-      debugLog(`Forced display:block on ${elementName}`);
+      // Use inline-block as it's the most common for button-like elements
+      element.style.display = 'inline-block';
+      debugLog(`Forced display:inline-block on ${elementName}`);
     }
     if (computedStyle.visibility === 'hidden') {
       element.style.visibility = 'visible';
       debugLog(`Forced visibility:visible on ${elementName}`);
     }
     
-    // Force another style recalculation
+    // Force another style recalculation to ensure changes take effect
     void element.offsetHeight;
     debugLog(`Ensured visibility for ${elementName}`);
   });
