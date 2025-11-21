@@ -315,6 +315,34 @@ function removeClonedWatchInfo() {
     debugLog('Removed cloned watch info');
   }
   
+  // Reset CSS changes
+  const ownerContainer = document.querySelector('#top-row #owner');
+  const videoOwnerRenderer = ownerContainer?.querySelector('ytd-video-owner-renderer');
+  const subscribeButton = document.querySelector('#top-row #subscribe-button');
+  
+  if (ownerContainer) {
+    ownerContainer.style.display = '';
+    ownerContainer.style.alignItems = '';
+    ownerContainer.style.gap = '';
+  }
+  
+  if (videoOwnerRenderer) {
+    videoOwnerRenderer.style.display = '';
+    videoOwnerRenderer.style.alignItems = '';
+    videoOwnerRenderer.style.gap = '';
+    videoOwnerRenderer.style.flexWrap = '';
+    
+    // Reset margin on buttons inside ytd-video-owner-renderer
+    const buttons = videoOwnerRenderer.querySelectorAll('#sponsor-button, #purchase-button, #analytics-button');
+    buttons.forEach(button => {
+      button.style.marginLeft = '';
+    });
+  }
+  
+  if (subscribeButton) {
+    subscribeButton.style.marginLeft = '';
+  }
+  
   // Clean up observers
   if (viewCountObserver) {
     viewCountObserver.disconnect();
@@ -407,8 +435,9 @@ async function moveWatchInfoToTopRow() {
   }
   
   // Ensure subscribe button and other buttons are right-justified
-  // Find the #owner container and #subscribe-button
+  // Find the #owner container, ytd-video-owner-renderer, and #subscribe-button
   const ownerContainer = document.querySelector('#top-row #owner');
+  const videoOwnerRenderer = ownerContainer?.querySelector('ytd-video-owner-renderer');
   const subscribeButton = document.querySelector('#top-row #subscribe-button');
   
   if (ownerContainer) {
@@ -418,9 +447,33 @@ async function moveWatchInfoToTopRow() {
     ownerContainer.style.gap = '12px';
   }
   
+  if (videoOwnerRenderer) {
+    // Make the video owner renderer use flex layout too
+    videoOwnerRenderer.style.display = 'flex';
+    videoOwnerRenderer.style.alignItems = 'center';
+    videoOwnerRenderer.style.gap = '12px';
+    videoOwnerRenderer.style.flexWrap = 'wrap';
+    
+    // Find buttons inside ytd-video-owner-renderer and push them to the right
+    // Look for sponsor button, purchase button, or analytics button
+    const sponsorButton = videoOwnerRenderer.querySelector('#sponsor-button:not([hidden])');
+    const purchaseButton = videoOwnerRenderer.querySelector('#purchase-button:not([hidden])');
+    const analyticsButton = videoOwnerRenderer.querySelector('#analytics-button:not([hidden])');
+    
+    // Push the first visible button to the right with margin-left: auto
+    const firstButton = sponsorButton || purchaseButton || analyticsButton;
+    if (firstButton) {
+      firstButton.style.marginLeft = 'auto';
+    }
+  }
+  
   if (subscribeButton) {
-    // Push the subscribe button to the right
-    subscribeButton.style.marginLeft = 'auto';
+    // Push the subscribe button to the right (or keep it right if buttons above are already pushed)
+    // Only apply margin-left: auto if there are no buttons inside ytd-video-owner-renderer
+    const videoOwnerButtons = videoOwnerRenderer?.querySelectorAll('#sponsor-button:not([hidden]), #purchase-button:not([hidden]), #analytics-button:not([hidden])');
+    if (!videoOwnerButtons || videoOwnerButtons.length === 0) {
+      subscribeButton.style.marginLeft = 'auto';
+    }
   }
   
   // Set up watcher for view count changes
